@@ -10,8 +10,13 @@ export async function saveSessionLogAction(
   reps: number | null,
   weight: number | null,
   durationSeconds: number | null
-) {
-  await upsertSessionLog(sessionId, exerciseId, sets, reps, weight, durationSeconds)
+): Promise<{ error?: string }> {
+  try {
+    await upsertSessionLog(sessionId, exerciseId, sets, reps, weight, durationSeconds)
+    return {}
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : 'Failed to save' }
+  }
 }
 
 export async function completeSessionAction(sessionId: string) {
