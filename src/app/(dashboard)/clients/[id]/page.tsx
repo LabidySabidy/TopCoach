@@ -12,7 +12,7 @@ export default async function ClientProfilePage({
   if (!client) {
     return (
       <div className="space-y-4">
-        <Link href="/dashboard/clients" className="text-sm text-gray-500 hover:text-gray-900 transition">
+        <Link href="/clients" className="text-sm text-gray-500 hover:text-gray-900 transition">
           ← Back to Clients
         </Link>
         <div className="rounded-xl border border-gray-200 bg-white px-5 py-10 text-center">
@@ -24,7 +24,7 @@ export default async function ClientProfilePage({
 
   return (
     <div className="space-y-6">
-      <Link href="/dashboard/clients" className="text-sm text-gray-500 hover:text-gray-900 transition">
+      <Link href="/clients" className="text-sm text-gray-500 hover:text-gray-900 transition">
         ← Back to Clients
       </Link>
 

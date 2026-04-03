@@ -22,6 +22,6 @@ export async function createClientAction(formData: FormData) {
     return { error: 'Failed to create client. Please try again.' }
   }
 
-  revalidatePath('/dashboard/clients')
+  revalidatePath('/clients')
   return { success: true }
 }
