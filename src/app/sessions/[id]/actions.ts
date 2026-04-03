@@ -8,9 +8,10 @@ export async function saveSessionLogAction(
   exerciseId: string,
   sets: number | null,
   reps: number | null,
-  weight: number | null
+  weight: number | null,
+  durationSeconds: number | null
 ) {
-  await upsertSessionLog(sessionId, exerciseId, sets, reps, weight)
+  await upsertSessionLog(sessionId, exerciseId, sets, reps, weight, durationSeconds)
 }
 
 export async function completeSessionAction(sessionId: string) {

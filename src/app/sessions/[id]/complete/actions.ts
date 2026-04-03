@@ -1,8 +1,33 @@
 'use server'
 
+import { google } from 'googleapis'
 import { getCalendar } from '@/lib/google-calendar'
 import { getStripe } from '@/lib/stripe'
 import { updateSessionCalendarEventId, updateSessionPaymentLink, getSessionById } from '@/lib/supabase/queries'
+
+function getGmailClient() {
+  const oauth2Client = new google.auth.OAuth2(
+    process.env.GOOGLE_CLIENT_ID,
+    process.env.GOOGLE_CLIENT_SECRET
+  )
+  oauth2Client.setCredentials({ refresh_token: process.env.GOOGLE_REFRESH_TOKEN })
+  return google.gmail({ version: 'v1', auth: oauth2Client })
+}
+
+function buildRawEmail(to: string, subject: string, body: string): string {
+  const lines = [
+    `To: ${to}`,
+    'Content-Type: text/plain; charset=utf-8',
+    `Subject: ${subject}`,
+    '',
+    body,
+  ]
+  return Buffer.from(lines.join('\r\n'))
+    .toString('base64')
+    .replace(/\+/g, '-')
+    .replace(/\//g, '_')
+    .replace(/=+$/, '')
+}
 
 export async function scheduleNextSessionAction(
   sessionId: string,
@@ -60,6 +85,24 @@ export async function sendPaymentAction(
     return { success: true, paymentLink: paymentLink.url }
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Failed to generate payment link.'
+    return { success: false, error: message }
+  }
+}
+
+export async function sendPaymentEmailAction(
+  clientName: string,
+  clientEmail: string,
+  paymentLink: string
+): Promise<{ success: true } | { success: false; error: string }> {
+  try {
+    const gmail = getGmailClient()
+    const subject = 'Payment for your training session'
+    const body = `Hi ${clientName},\n\nHere's your payment link for today's session:\n\n${paymentLink}\n\nThank you!`
+    const raw = buildRawEmail(clientEmail, subject, body)
+    await gmail.users.messages.send({ userId: 'me', requestBody: { raw } })
+    return { success: true }
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Failed to send email.'
     return { success: false, error: message }
   }
 }

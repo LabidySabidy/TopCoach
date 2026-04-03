@@ -6,28 +6,59 @@ import ExercisePicker from './ExercisePicker'
 import { saveSessionLogAction, completeSessionAction } from './actions'
 
 interface LogEntry {
-  exerciseId: string
   sets: string
   reps: string
   weight: string
+  durationMin: string
+  durationSec: string
 }
 
 interface Props {
   session: Session & { clients: { name: string; id: string } }
   allExercises: Exercise[]
-  existingLogs: Array<{ exercise_id: string; sets: number | null; reps: number | null; weight: number | null; exercises: Exercise }>
+  existingLogs: Array<{
+    exercise_id: string
+    sets: number | null
+    reps: number | null
+    weight: number | null
+    duration_seconds: number | null
+    exercises: Exercise
+  }>
   lastSession: SessionWithLogs | null
+}
+
+function secondsToMinSec(seconds: number): { min: string; sec: string } {
+  return {
+    min: Math.floor(seconds / 60).toString(),
+    sec: (seconds % 60).toString().padStart(2, '0'),
+  }
+}
+
+function formatLastSessionLog(log: SessionWithLogs['logs'][0]): string {
+  const type = log.exercises.exercise_type
+  if (type === 'duration') {
+    if (log.duration_seconds == null) return '—'
+    const { min, sec } = secondsToMinSec(log.duration_seconds)
+    return sec === '00' ? `${min}m` : `${min}m ${sec}s`
+  }
+  const parts: string[] = []
+  if (log.sets != null) parts.push(`${log.sets} sets`)
+  if (log.reps != null) parts.push(`${log.reps} reps`)
+  if (type === 'weighted' && log.weight != null) parts.push(`${log.weight} lbs`)
+  return parts.join(' · ') || '—'
 }
 
 export default function SessionLoggingClient({ session, allExercises, existingLogs, lastSession }: Props) {
   const initialExercises = existingLogs.map((l) => l.exercises)
   const initialLogs: Record<string, LogEntry> = {}
   for (const l of existingLogs) {
+    const durParts = l.duration_seconds != null ? secondsToMinSec(l.duration_seconds) : { min: '', sec: '' }
     initialLogs[l.exercise_id] = {
-      exerciseId: l.exercise_id,
       sets: l.sets?.toString() ?? '',
       reps: l.reps?.toString() ?? '',
       weight: l.weight?.toString() ?? '',
+      durationMin: durParts.min,
+      durationSec: durParts.sec,
     }
   }
 
@@ -40,19 +71,18 @@ export default function SessionLoggingClient({ session, allExercises, existingLo
   function handlePickerConfirm(selected: Exercise[]) {
     setExercises(selected)
     setShowPicker(false)
-    // Init log entries for new exercises
     setLogs((prev) => {
       const next = { ...prev }
       for (const ex of selected) {
         if (!next[ex.id]) {
-          next[ex.id] = { exerciseId: ex.id, sets: '', reps: '', weight: '' }
+          next[ex.id] = { sets: '', reps: '', weight: '', durationMin: '', durationSec: '' }
         }
       }
       return next
     })
   }
 
-  function handleFieldChange(exerciseId: string, field: 'sets' | 'reps' | 'weight', value: string) {
+  function handleFieldChange(exerciseId: string, field: keyof LogEntry, value: string) {
     setLogs((prev) => ({
       ...prev,
       [exerciseId]: { ...prev[exerciseId], [field]: value },
@@ -62,13 +92,17 @@ export default function SessionLoggingClient({ session, allExercises, existingLo
   function handleBlur(exerciseId: string) {
     const entry = logs[exerciseId]
     if (!entry) return
+    const min = entry.durationMin ? parseInt(entry.durationMin) : 0
+    const sec = entry.durationSec ? parseInt(entry.durationSec) : 0
+    const durationSeconds = (min > 0 || sec > 0) ? min * 60 + sec : null
     startTransition(async () => {
       await saveSessionLogAction(
         session.id,
         exerciseId,
         entry.sets ? parseInt(entry.sets) : null,
         entry.reps ? parseInt(entry.reps) : null,
-        entry.weight ? parseFloat(entry.weight) : null
+        entry.weight ? parseFloat(entry.weight) : null,
+        durationSeconds
       )
     })
   }
@@ -122,7 +156,6 @@ export default function SessionLoggingClient({ session, allExercises, existingLo
               </p>
               <span className="text-xs text-gray-400">{showLastSession ? '▲ hide' : '▼ show'}</span>
             </div>
-
             {showLastSession && (
               <div className="mt-3 space-y-2">
                 {lastSession.logs.length === 0 ? (
@@ -131,15 +164,7 @@ export default function SessionLoggingClient({ session, allExercises, existingLo
                   lastSession.logs.map((log) => (
                     <div key={log.id} className="flex items-center justify-between">
                       <p className="text-xs text-gray-700">{log.exercises.name}</p>
-                      <p className="text-xs text-gray-500">
-                        {[
-                          log.sets != null ? `${log.sets} sets` : null,
-                          log.reps != null ? `${log.reps} reps` : null,
-                          log.weight != null ? `${log.weight} lbs` : null,
-                        ]
-                          .filter(Boolean)
-                          .join(' · ')}
-                      </p>
+                      <p className="text-xs text-gray-500">{formatLastSessionLog(log)}</p>
                     </div>
                   ))
                 )}
@@ -167,7 +192,7 @@ export default function SessionLoggingClient({ session, allExercises, existingLo
           </div>
         ) : (
           exercises.map((ex) => {
-            const entry = logs[ex.id] ?? { sets: '', reps: '', weight: '' }
+            const entry = logs[ex.id] ?? { sets: '', reps: '', weight: '', durationMin: '', durationSec: '' }
             return (
               <div key={ex.id} className="rounded-xl border border-gray-200 bg-white px-5 py-4 space-y-3">
                 <div className="flex items-center justify-between">
@@ -176,30 +201,79 @@ export default function SessionLoggingClient({ session, allExercises, existingLo
                     <span className="text-xs text-gray-400">{ex.muscle_group}</span>
                   )}
                 </div>
-                <div className="grid grid-cols-3 gap-3">
-                  {(['sets', 'reps', 'weight'] as const).map((field) => (
-                    <div key={field}>
-                      <label className="block text-xs font-medium text-gray-500 mb-1 capitalize">
-                        {field === 'weight' ? 'Weight (lbs)' : field}
-                      </label>
+
+                {ex.exercise_type === 'duration' ? (
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-medium text-gray-500 mb-1">Min</label>
                       <input
                         type="number"
-                        inputMode="decimal"
-                        value={entry[field]}
-                        onChange={(e) => handleFieldChange(ex.id, field, e.target.value)}
+                        inputMode="numeric"
+                        min="0"
+                        value={entry.durationMin}
+                        onChange={(e) => handleFieldChange(ex.id, 'durationMin', e.target.value)}
                         onBlur={() => handleBlur(ex.id)}
-                        placeholder="—"
+                        placeholder="0"
                         className="w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-2.5 text-center text-sm font-medium text-gray-900 focus:border-gray-400 focus:bg-white focus:outline-none"
                       />
                     </div>
-                  ))}
-                </div>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-500 mb-1">Sec</label>
+                      <input
+                        type="number"
+                        inputMode="numeric"
+                        min="0"
+                        max="59"
+                        value={entry.durationSec}
+                        onChange={(e) => handleFieldChange(ex.id, 'durationSec', e.target.value)}
+                        onBlur={() => handleBlur(ex.id)}
+                        placeholder="00"
+                        className="w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-2.5 text-center text-sm font-medium text-gray-900 focus:border-gray-400 focus:bg-white focus:outline-none"
+                      />
+                    </div>
+                  </div>
+                ) : ex.exercise_type === 'bodyweight' ? (
+                  <div className="grid grid-cols-2 gap-3">
+                    {(['sets', 'reps'] as const).map((field) => (
+                      <div key={field}>
+                        <label className="block text-xs font-medium text-gray-500 mb-1 capitalize">{field}</label>
+                        <input
+                          type="number"
+                          inputMode="numeric"
+                          value={entry[field]}
+                          onChange={(e) => handleFieldChange(ex.id, field, e.target.value)}
+                          onBlur={() => handleBlur(ex.id)}
+                          placeholder="—"
+                          className="w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-2.5 text-center text-sm font-medium text-gray-900 focus:border-gray-400 focus:bg-white focus:outline-none"
+                        />
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-3 gap-3">
+                    {(['sets', 'reps', 'weight'] as const).map((field) => (
+                      <div key={field}>
+                        <label className="block text-xs font-medium text-gray-500 mb-1 capitalize">
+                          {field === 'weight' ? 'lbs' : field}
+                        </label>
+                        <input
+                          type="number"
+                          inputMode="decimal"
+                          value={entry[field]}
+                          onChange={(e) => handleFieldChange(ex.id, field, e.target.value)}
+                          onBlur={() => handleBlur(ex.id)}
+                          placeholder="—"
+                          className="w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-2.5 text-center text-sm font-medium text-gray-900 focus:border-gray-400 focus:bg-white focus:outline-none"
+                        />
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             )
           })
         )}
 
-        {/* Add exercises button */}
         {exercises.length > 0 && (
           <button
             onClick={() => setShowPicker(true)}
@@ -210,7 +284,6 @@ export default function SessionLoggingClient({ session, allExercises, existingLo
         )}
       </div>
 
-      {/* Exercise picker sheet */}
       {showPicker && (
         <ExercisePicker
           exercises={allExercises}

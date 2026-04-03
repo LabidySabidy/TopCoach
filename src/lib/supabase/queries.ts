@@ -107,13 +107,14 @@ export async function upsertSessionLog(
   exerciseId: string,
   sets: number | null,
   reps: number | null,
-  weight: number | null
+  weight: number | null,
+  durationSeconds: number | null
 ): Promise<void> {
   const supabase = await createClient()
   const { error } = await supabase
     .from('session_logs')
     .upsert(
-      { session_id: sessionId, exercise_id: exerciseId, sets, reps, weight },
+      { session_id: sessionId, exercise_id: exerciseId, sets, reps, weight, duration_seconds: durationSeconds },
       { onConflict: 'session_id,exercise_id' }
     )
 

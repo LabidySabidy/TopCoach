@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useTransition } from 'react'
 import { useParams, useRouter } from 'next/navigation'
-import { scheduleNextSessionAction, sendPaymentAction, getSessionClientAction } from './actions'
+import { scheduleNextSessionAction, sendPaymentAction, sendPaymentEmailAction, getSessionClientAction } from './actions'
 
 type Step = 'schedule' | 'payment'
 
@@ -31,6 +31,8 @@ export default function CompleteSessionClient({ sessionPrice }: { sessionPrice: 
   const [tipDollars, setTipDollars] = useState('')
   const [paymentLink, setPaymentLink] = useState<string | null>(null)
   const [paymentError, setPaymentError] = useState<string | null>(null)
+  const [emailSent, setEmailSent] = useState(false)
+  const [emailError, setEmailError] = useState<string | null>(null)
 
   useEffect(() => {
     getSessionClientAction(sessionId).then((data) => {
@@ -90,11 +92,19 @@ export default function CompleteSessionClient({ sessionPrice }: { sessionPrice: 
 
   function handleSendEmail() {
     if (!paymentLink || !sessionData) return
-    const subject = encodeURIComponent('Payment for Training Session')
-    const body = encodeURIComponent(
-      `Hi ${sessionData.clients.name},\n\nHere's your payment link:\n${paymentLink}\n\nThank you!`
-    )
-    window.open(`mailto:${sessionData.clients.email}?subject=${subject}&body=${body}`)
+    setEmailError(null)
+    startTransition(async () => {
+      const result = await sendPaymentEmailAction(
+        sessionData.clients.name,
+        sessionData.clients.email,
+        paymentLink
+      )
+      if (result.success) {
+        setEmailSent(true)
+      } else {
+        setEmailError(result.error)
+      }
+    })
   }
 
   if (!sessionData) {
@@ -264,11 +274,15 @@ export default function CompleteSessionClient({ sessionPrice }: { sessionPrice: 
                     {paymentLink}
                   </a>
                 </div>
+                {emailError && (
+                  <p className="text-xs text-red-600">{emailError}</p>
+                )}
                 <button
                   onClick={handleSendEmail}
-                  className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm font-medium text-gray-700 transition hover:border-gray-300 hover:text-gray-900"
+                  disabled={isPending || emailSent}
+                  className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm font-medium text-gray-700 transition hover:border-gray-300 hover:text-gray-900 disabled:opacity-50"
                 >
-                  Send to email →
+                  {emailSent ? 'Email sent ✓' : isPending ? 'Sending…' : 'Send to email →'}
                 </button>
               </div>
             )}

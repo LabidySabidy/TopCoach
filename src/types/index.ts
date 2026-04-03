@@ -10,6 +10,7 @@ export interface Exercise {
   id: string
   name: string
   muscle_group: string | null
+  exercise_type: 'weighted' | 'bodyweight' | 'duration'
   is_custom: boolean
   created_at: string
 }
@@ -38,6 +39,7 @@ export interface SessionLog {
   sets: number | null
   reps: number | null
   weight: number | null
+  duration_seconds: number | null
   notes: string | null
   created_at: string
 }
