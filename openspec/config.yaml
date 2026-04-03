@@ -1,0 +1,74 @@
+schema: spec-driven
+
+context: |
+  # TopCoach — Personal Trainer Management App
+
+  ## What this app is
+  A lightweight, mobile-first web app built for a single personal trainer to manage
+  their clients, run sessions, log workouts, send Stripe invoices, and schedule
+  sessions via Google Calendar. It is internal tooling for one user, not a SaaS product.
+
+  ## Who uses it
+  - One trainer (the app owner) — logs in with a password, manages everything
+  - Clients do NOT log in — they only receive Stripe invoice emails and Google Calendar invites
+
+  ## Tech Stack
+  - Framework: Next.js (App Router) with TypeScript
+  - Database: Supabase (PostgreSQL) — also used for auth (single-user password login)
+  - Styling: Tailwind CSS — mobile-first, tablet and phone are primary devices
+  - Payments: Stripe SDK (Node.js) — Payment Links API and/or Invoicing API, direct Stripe connect (no platform fee)
+  - Calendar: Google Calendar API — create events with client as attendee; Google sends invite email automatically
+  - Deployment: Vercel
+
+  ## Core Features (MVP)
+  1. Workout Logger — log exercises (sets, reps, weight) per client per session.
+     Show last session's numbers alongside the input fields during logging.
+     Trainer uses this on a tablet or phone DURING a live session.
+  2. Stripe Invoices — after a session, trainer taps "Send Invoice" to generate and
+     send a Stripe payment link or invoice to the client's email. Direct Stripe, no markup.
+  3. Google Calendar — when scheduling a session, send a Google Calendar invite to
+     the client's email. Google handles the invite email automatically.
+
+  ## Data Model (key entities)
+  - Trainer: single account, password-protected login via Supabase Auth
+  - Clients: name, email, phone (up to ~10 clients)
+  - Exercises: name, muscle group — seeded with common exercises, trainer can add custom ones
+  - Sessions: client, date/time, notes, google_calendar_event_id, stripe_invoice_id
+  - Session_Logs: session, exercise, sets, reps, weight, notes
+
+  ## Critical UX Principles
+  - Speed above all during active logging — every log action must be 1-2 taps max
+  - Auto-fill last session's weights when starting a new session for a client
+  - Offline-tolerant logging — do not rely on live DB round-trips during active workout logging
+  - No feature bloat — keep each screen focused on one job
+  - Mobile-first responsive design — works on phone and tablet browsers
+
+  ## Out of Scope (MVP)
+  - Client-facing login or portal
+  - Workout templates or program assignment
+  - Nutrition, habits, or metrics tracking
+  - Messaging or chat
+  - Multi-trainer support
+  - Native mobile app (web app only for now)
+
+rules:
+  proposal:
+    - Clearly state which of the 3 core features (workout logger, payments, calendar) this change touches
+    - Flag any change that adds new dependencies or third-party services
+    - Keep scope tight — reject feature creep beyond the MVP definition above
+
+  specs:
+    - Use Given/When/Then format for all scenarios
+    - Reference the data model entities defined in context when naming things
+    - Every spec must be traceable to one of the 3 core features
+
+  design:
+    - Always consider the mobile/tablet UX — describe tap targets, layout, and flow
+    - For Stripe changes: specify whether using Payment Links API or Invoicing API and why
+    - For Google Calendar changes: specify OAuth scopes required
+    - Call out any offline/caching considerations for workout logging screens
+
+  tasks:
+    - Break into small, testable units — no task should touch more than one route or component
+    - Supabase schema changes must be their own task (migration first, then code)
+    - Stripe and Google Calendar integration tasks must include environment variable setup
