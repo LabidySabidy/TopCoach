@@ -18,10 +18,10 @@
 
 ## 4. Supabase Project Setup
 
-- [ ] 4.1 Create a new Supabase project in the Supabase dashboard
-- [ ] 4.2 Copy the project URL and anon key into `.env.local`
-- [ ] 4.3 Copy the service role key into `.env.local`
-- [ ] 4.4 Create the trainer user account in Supabase Auth dashboard (Authentication → Users → Add user)
+- [x] 4.1 Create a new Supabase project in the Supabase dashboard
+- [x] 4.2 Copy the project URL and anon key into `.env.local`
+- [x] 4.3 Copy the service role key into `.env.local`
+- [x] 4.4 Create the trainer user account in Supabase Auth dashboard (Authentication → Users → Add user)
 
 ## 5. Supabase Client Helpers
 
@@ -64,7 +64,7 @@
 
 ## 12. Vercel Deployment
 
-- [ ] 12.1 Push the project to a new GitHub repository
-- [ ] 12.2 Create a new Vercel project and link it to the GitHub repo
-- [ ] 12.3 Add all environment variables from `.env.local` to the Vercel project settings
-- [ ] 12.4 Trigger a deployment and confirm the production URL loads the login page
+- [x] 12.1 Push the project to a new GitHub repository
+- [x] 12.2 Create a new Vercel project and link it to the GitHub repo
+- [x] 12.3 Add all environment variables from `.env.local` to the Vercel project settings
+- [x] 12.4 Trigger a deployment and confirm the production URL loads the login page

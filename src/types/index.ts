@@ -20,9 +20,15 @@ export interface Session {
   date: string
   time: string | null
   notes: string | null
+  status: 'active' | 'completed'
   google_calendar_event_id: string | null
   stripe_invoice_id: string | null
   created_at: string
+}
+
+export interface SessionWithLogs {
+  session: Session
+  logs: Array<SessionLog & { exercises: Exercise }>
 }
 
 export interface SessionLog {

@@ -1,5 +1,6 @@
 import Link from 'next/link'
-import { getClientById } from '@/lib/supabase/queries'
+import { getClientById, getSessionsByClientId } from '@/lib/supabase/queries'
+import { startSessionAction } from '../actions'
 
 export default async function ClientProfilePage({
   params,
@@ -7,7 +8,10 @@ export default async function ClientProfilePage({
   params: Promise<{ id: string }>
 }) {
   const { id } = await params
-  const client = await getClientById(id)
+  const [client, sessions] = await Promise.all([
+    getClientById(id),
+    getSessionsByClientId(id),
+  ])
 
   if (!client) {
     return (
@@ -21,6 +25,8 @@ export default async function ClientProfilePage({
       </div>
     )
   }
+
+  const startSession = startSessionAction.bind(null, client.id)
 
   return (
     <div className="space-y-6">
@@ -47,14 +53,51 @@ export default async function ClientProfilePage({
             </p>
           )}
         </div>
+        <form action={startSession}>
+          <button
+            type="submit"
+            className="mt-2 w-full rounded-xl bg-gray-900 px-5 py-3 text-sm font-semibold text-white transition hover:bg-gray-700 active:scale-95"
+          >
+            Start Session
+          </button>
+        </form>
       </div>
 
-      {/* Sessions placeholder */}
+      {/* Sessions list */}
       <div>
         <h3 className="text-base font-semibold text-gray-900 mb-3">Sessions</h3>
-        <div className="rounded-xl border border-dashed border-gray-300 bg-white px-5 py-10 text-center">
-          <p className="text-sm text-gray-500">No sessions yet.</p>
-        </div>
+        {sessions.length === 0 ? (
+          <div className="rounded-xl border border-dashed border-gray-300 bg-white px-5 py-10 text-center">
+            <p className="text-sm text-gray-500">No sessions logged yet.</p>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {sessions.map((session) => (
+              <div
+                key={session.id}
+                className="flex items-center justify-between rounded-xl border border-gray-200 bg-white px-5 py-4"
+              >
+                <p className="text-sm font-medium text-gray-900">
+                  {new Date(session.date + 'T00:00:00').toLocaleDateString('en-US', {
+                    weekday: 'short',
+                    month: 'short',
+                    day: 'numeric',
+                    year: 'numeric',
+                  })}
+                </p>
+                <span
+                  className={`text-xs font-medium px-2.5 py-1 rounded-full ${
+                    session.status === 'completed'
+                      ? 'bg-green-100 text-green-700'
+                      : 'bg-yellow-100 text-yellow-700'
+                  }`}
+                >
+                  {session.status === 'completed' ? 'Completed' : 'Active'}
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   )
