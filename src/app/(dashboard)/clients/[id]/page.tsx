@@ -73,9 +73,10 @@ export default async function ClientProfilePage({
         ) : (
           <div className="space-y-2">
             {sessions.map((session) => (
-              <div
+              <Link
                 key={session.id}
-                className="flex items-center justify-between rounded-xl border border-gray-200 bg-white px-5 py-4"
+                href={`/sessions/${session.id}`}
+                className="flex items-center justify-between rounded-xl border border-gray-200 bg-white px-5 py-4 transition hover:border-gray-300 hover:shadow-sm active:bg-gray-50"
               >
                 <p className="text-sm font-medium text-gray-900">
                   {new Date(session.date + 'T00:00:00').toLocaleDateString('en-US', {
@@ -92,9 +93,9 @@ export default async function ClientProfilePage({
                       : 'bg-yellow-100 text-yellow-700'
                   }`}
                 >
-                  {session.status === 'completed' ? 'Completed' : 'Active'}
+                  {session.status === 'completed' ? 'Completed' : 'In Progress'}
                 </span>
-              </div>
+              </Link>
             ))}
           </div>
         )}

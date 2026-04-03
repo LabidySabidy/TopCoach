@@ -131,6 +131,16 @@ export async function updateSessionPaymentLink(sessionId: string, paymentLink: s
   if (error) throw new Error(error.message)
 }
 
+export async function deleteSession(sessionId: string): Promise<void> {
+  const supabase = await createClient()
+  const { error } = await supabase
+    .from('sessions')
+    .delete()
+    .eq('id', sessionId)
+
+  if (error) throw new Error(error.message)
+}
+
 export async function updateSessionCalendarEventId(sessionId: string, eventId: string): Promise<void> {
   const supabase = await createClient()
   const { error } = await supabase

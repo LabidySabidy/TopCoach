@@ -1,9 +1,10 @@
 'use client'
 
 import { useState, useTransition } from 'react'
+import Link from 'next/link'
 import { Exercise, Session, SessionWithLogs } from '@/types'
 import ExercisePicker from './ExercisePicker'
-import { saveSessionLogAction, completeSessionAction } from './actions'
+import { saveSessionLogAction, completeSessionAction, cancelSessionAction } from './actions'
 
 interface LogEntry {
   sets: string
@@ -34,7 +35,7 @@ function secondsToMinSec(seconds: number): { min: string; sec: string } {
   }
 }
 
-function formatLastSessionLog(log: SessionWithLogs['logs'][0]): string {
+function formatLogValue(log: SessionWithLogs['logs'][0]): string {
   const type = log.exercises.exercise_type
   if (type === 'duration') {
     if (log.duration_seconds == null) return '—'
@@ -48,6 +49,145 @@ function formatLastSessionLog(log: SessionWithLogs['logs'][0]): string {
   return parts.join(' · ') || '—'
 }
 
+function formatExistingLogValue(
+  log: Props['existingLogs'][0]
+): string {
+  const type = log.exercises.exercise_type
+  if (type === 'duration') {
+    if (log.duration_seconds == null) return '—'
+    const { min, sec } = secondsToMinSec(log.duration_seconds)
+    return sec === '00' ? `${min}m` : `${min}m ${sec}s`
+  }
+  const parts: string[] = []
+  if (log.sets != null) parts.push(`${log.sets} sets`)
+  if (log.reps != null) parts.push(`${log.reps} reps`)
+  if (type === 'weighted' && log.weight != null) parts.push(`${log.weight} lbs`)
+  return parts.join(' · ') || '—'
+}
+
+// ─── Read-only completed session report ──────────────────────────────────────
+function CompletedSessionReport({
+  session,
+  logs,
+}: {
+  session: Props['session']
+  logs: Props['existingLogs']
+}) {
+  const sessionDate = new Date(session.date + 'T00:00:00').toLocaleDateString('en-US', {
+    weekday: 'long',
+    month: 'long',
+    day: 'numeric',
+    year: 'numeric',
+  })
+
+  return (
+    <div className="flex flex-col min-h-screen bg-gray-50">
+      <div className="bg-white border-b border-gray-200 px-5 py-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-base font-semibold text-gray-900">{session.clients.name}</p>
+            <p className="text-xs text-gray-500">{sessionDate}</p>
+          </div>
+          <span className="text-xs font-medium px-2.5 py-1 rounded-full bg-green-100 text-green-700">
+            Completed
+          </span>
+        </div>
+      </div>
+
+      <div className="flex-1 px-5 py-5 space-y-3 max-w-2xl mx-auto w-full">
+        <Link
+          href={`/clients/${session.clients.id}`}
+          className="text-sm text-gray-500 hover:text-gray-900 transition"
+        >
+          ← Back to {session.clients.name}
+        </Link>
+
+        {logs.length === 0 ? (
+          <div className="rounded-xl border border-dashed border-gray-300 bg-white px-5 py-10 text-center">
+            <p className="text-sm text-gray-500">No exercises were logged in this session.</p>
+          </div>
+        ) : (
+          logs.map((log) => (
+            <div
+              key={log.exercise_id}
+              className="flex items-center justify-between rounded-xl border border-gray-200 bg-white px-5 py-4"
+            >
+              <div>
+                <p className="text-sm font-semibold text-gray-900">{log.exercises.name}</p>
+                {log.exercises.muscle_group && (
+                  <p className="text-xs text-gray-400 mt-0.5">{log.exercises.muscle_group}</p>
+                )}
+              </div>
+              <p className="text-sm text-gray-600">{formatExistingLogValue(log)}</p>
+            </div>
+          ))
+        )}
+      </div>
+    </div>
+  )
+}
+
+// ─── Resume / Cancel prompt ───────────────────────────────────────────────────
+function ResumePrompt({
+  session,
+  logs,
+  onResume,
+}: {
+  session: Props['session']
+  logs: Props['existingLogs']
+  onResume: () => void
+}) {
+  const [isPending, startTransition] = useTransition()
+
+  function handleCancel() {
+    startTransition(async () => {
+      await cancelSessionAction(session.id, session.clients.id)
+    })
+  }
+
+  return (
+    <div className="flex flex-col min-h-screen bg-gray-50">
+      {/* Dimmed content preview behind the sheet */}
+      <div className="flex-1 px-5 py-5 space-y-3 max-w-2xl mx-auto w-full opacity-30 pointer-events-none select-none">
+        {logs.map((log) => (
+          <div
+            key={log.exercise_id}
+            className="flex items-center justify-between rounded-xl border border-gray-200 bg-white px-5 py-4"
+          >
+            <p className="text-sm font-semibold text-gray-900">{log.exercises.name}</p>
+            <p className="text-sm text-gray-500">{formatExistingLogValue(log)}</p>
+          </div>
+        ))}
+      </div>
+
+      {/* Bottom sheet */}
+      <div className="sticky bottom-0 bg-white border-t border-gray-200 px-5 py-6 space-y-3 shadow-xl">
+        <div className="mb-1">
+          <p className="text-base font-semibold text-gray-900">Session in progress</p>
+          <p className="text-sm text-gray-500 mt-0.5">
+            {logs.length} exercise{logs.length !== 1 ? 's' : ''} logged.
+            Would you like to resume or cancel this session?
+          </p>
+        </div>
+        <button
+          onClick={onResume}
+          className="w-full rounded-xl bg-gray-900 px-5 py-3 text-sm font-semibold text-white transition hover:bg-gray-700 active:scale-95"
+        >
+          Resume Session
+        </button>
+        <button
+          onClick={handleCancel}
+          disabled={isPending}
+          className="w-full rounded-xl border border-red-200 px-5 py-3 text-sm font-semibold text-red-600 transition hover:bg-red-50 active:scale-95 disabled:opacity-50"
+        >
+          {isPending ? 'Cancelling…' : 'Cancel Session'}
+        </button>
+      </div>
+    </div>
+  )
+}
+
+// ─── Main component ───────────────────────────────────────────────────────────
 export default function SessionLoggingClient({ session, allExercises, existingLogs, lastSession }: Props) {
   const initialExercises = existingLogs.map((l) => l.exercises)
   const initialLogs: Record<string, LogEntry> = {}
@@ -62,12 +202,33 @@ export default function SessionLoggingClient({ session, allExercises, existingLo
     }
   }
 
+  const isCompleted = session.status === 'completed'
+  const hasExistingData = existingLogs.length > 0
+
+  const [showResumePrompt, setShowResumePrompt] = useState(!isCompleted && hasExistingData)
   const [exercises, setExercises] = useState<Exercise[]>(initialExercises)
   const [logs, setLogs] = useState<Record<string, LogEntry>>(initialLogs)
   const [showPicker, setShowPicker] = useState(false)
   const [showLastSession, setShowLastSession] = useState(false)
   const [isPending, startTransition] = useTransition()
 
+  // ── Completed: read-only report
+  if (isCompleted) {
+    return <CompletedSessionReport session={session} logs={existingLogs} />
+  }
+
+  // ── Active with existing data: resume/cancel prompt
+  if (showResumePrompt) {
+    return (
+      <ResumePrompt
+        session={session}
+        logs={existingLogs}
+        onResume={() => setShowResumePrompt(false)}
+      />
+    )
+  }
+
+  // ── Active: logging screen
   function handlePickerConfirm(selected: Exercise[]) {
     setExercises(selected)
     setShowPicker(false)
@@ -139,7 +300,7 @@ export default function SessionLoggingClient({ session, allExercises, existingLo
       </div>
 
       <div className="flex-1 px-5 py-5 space-y-4 max-w-2xl mx-auto w-full">
-        {/* Last session reference toggle */}
+        {/* Last session reference */}
         {lastSession && (
           <button
             onClick={() => setShowLastSession((v) => !v)}
@@ -164,7 +325,7 @@ export default function SessionLoggingClient({ session, allExercises, existingLo
                   lastSession.logs.map((log) => (
                     <div key={log.id} className="flex items-center justify-between">
                       <p className="text-xs text-gray-700">{log.exercises.name}</p>
-                      <p className="text-xs text-gray-500">{formatLastSessionLog(log)}</p>
+                      <p className="text-xs text-gray-500">{formatLogValue(log)}</p>
                     </div>
                   ))
                 )}
@@ -204,33 +365,24 @@ export default function SessionLoggingClient({ session, allExercises, existingLo
 
                 {ex.exercise_type === 'duration' ? (
                   <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label className="block text-xs font-medium text-gray-500 mb-1">Min</label>
-                      <input
-                        type="number"
-                        inputMode="numeric"
-                        min="0"
-                        value={entry.durationMin}
-                        onChange={(e) => handleFieldChange(ex.id, 'durationMin', e.target.value)}
-                        onBlur={() => handleBlur(ex.id)}
-                        placeholder="0"
-                        className="w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-2.5 text-center text-sm font-medium text-gray-900 focus:border-gray-400 focus:bg-white focus:outline-none"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-medium text-gray-500 mb-1">Sec</label>
-                      <input
-                        type="number"
-                        inputMode="numeric"
-                        min="0"
-                        max="59"
-                        value={entry.durationSec}
-                        onChange={(e) => handleFieldChange(ex.id, 'durationSec', e.target.value)}
-                        onBlur={() => handleBlur(ex.id)}
-                        placeholder="00"
-                        className="w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-2.5 text-center text-sm font-medium text-gray-900 focus:border-gray-400 focus:bg-white focus:outline-none"
-                      />
-                    </div>
+                    {(['durationMin', 'durationSec'] as const).map((field) => (
+                      <div key={field}>
+                        <label className="block text-xs font-medium text-gray-500 mb-1">
+                          {field === 'durationMin' ? 'Min' : 'Sec'}
+                        </label>
+                        <input
+                          type="number"
+                          inputMode="numeric"
+                          min="0"
+                          max={field === 'durationSec' ? 59 : undefined}
+                          value={entry[field]}
+                          onChange={(e) => handleFieldChange(ex.id, field, e.target.value)}
+                          onBlur={() => handleBlur(ex.id)}
+                          placeholder="0"
+                          className="w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-2.5 text-center text-sm font-medium text-gray-900 focus:border-gray-400 focus:bg-white focus:outline-none"
+                        />
+                      </div>
+                    ))}
                   </div>
                 ) : ex.exercise_type === 'bodyweight' ? (
                   <div className="grid grid-cols-2 gap-3">

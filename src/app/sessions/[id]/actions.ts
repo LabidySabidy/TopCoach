@@ -1,7 +1,7 @@
 'use server'
 
 import { redirect } from 'next/navigation'
-import { upsertSessionLog, completeSession } from '@/lib/supabase/queries'
+import { upsertSessionLog, completeSession, deleteSession } from '@/lib/supabase/queries'
 
 export async function saveSessionLogAction(
   sessionId: string,
@@ -17,4 +17,9 @@ export async function saveSessionLogAction(
 export async function completeSessionAction(sessionId: string) {
   await completeSession(sessionId)
   redirect(`/sessions/${sessionId}/complete`)
+}
+
+export async function cancelSessionAction(sessionId: string, clientId: string) {
+  await deleteSession(sessionId)
+  redirect(`/clients/${clientId}`)
 }
