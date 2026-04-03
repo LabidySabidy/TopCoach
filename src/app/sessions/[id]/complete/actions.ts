@@ -53,8 +53,9 @@ export async function scheduleNextSessionAction(
     const eventId = event.data.id!
     await updateSessionCalendarEventId(sessionId, eventId)
     return { success: true, eventId }
-  } catch {
-    return { success: false, error: 'Calendar invite failed — send manually.' }
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err)
+    return { success: false, error: `Calendar error: ${message}` }
   }
 }
 
