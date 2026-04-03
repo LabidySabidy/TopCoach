@@ -1,7 +1,7 @@
 ## 1. Database Migration
 
 - [x] 1.1 Create migration `003_session_status.sql` adding `status` column (text, default `'active'`) to sessions table
-- [ ] 1.2 Run migration against Supabase (apply and confirm schema updated) ← MANUAL STEP
+- [x] 1.2 Run migration against Supabase (apply and confirm schema updated) ← MANUAL STEP
 
 ## 2. Environment Variables
 
@@ -60,5 +60,5 @@
 
 ## 10. Vercel Environment Variables
 
-- [ ] 10.1 Add `SESSION_PRICE` to Vercel project environment variables ← MANUAL STEP
-- [ ] 10.2 Add `STRIPE_SECRET_KEY` to Vercel project environment variables ← MANUAL STEP
+- [x] 10.1 Add `SESSION_PRICE` to Vercel project environment variables ← MANUAL STEP
+- [x] 10.2 Add `STRIPE_SECRET_KEY` to Vercel project environment variables ← MANUAL STEP
