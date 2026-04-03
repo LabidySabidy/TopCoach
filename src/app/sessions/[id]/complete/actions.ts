@@ -42,6 +42,7 @@ export async function scheduleNextSessionAction(
 
     const event = await calendar.events.insert({
       calendarId: 'primary',
+      sendUpdates: 'all',
       requestBody: {
         summary: `Training Session — ${clientName}`,
         start: { dateTime: startTime.toISOString() },
