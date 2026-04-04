@@ -1,29 +1,4 @@
-## ADDED Requirements
-
-### Requirement: Trainer can start a new session for a client
-The system SHALL create a new session record with status `active` when the trainer taps "Start Session" on the client profile, then navigate to the logging screen at `/sessions/[id]`.
-
-#### Scenario: Session is created and trainer lands on logging screen
-- **WHEN** the trainer taps "Start Session" on a client profile
-- **THEN** a new session row is inserted with the client_id, today's date, and status `active`, and the trainer is redirected to `/sessions/[id]`
-
-### Requirement: Trainer can select exercises from the library for the session
-The system SHALL provide a multiselect interface grouped by muscle group allowing the trainer to add exercises to the current session. Selected exercises SHALL appear as logging cards on the session screen.
-
-#### Scenario: Exercises are added to the session
-- **WHEN** the trainer selects exercises and confirms
-- **THEN** the selected exercises appear as individual logging cards on the session screen
-
-#### Scenario: Exercises are grouped by muscle group
-- **WHEN** the exercise picker is opened
-- **THEN** exercises are displayed grouped by muscle group (Chest, Back, Legs, etc.)
-
-### Requirement: Trainer can log sets, reps, and weight per exercise
-The system SHALL display an input card per selected exercise with fields for sets, reps, and weight. Entries SHALL be saved to `session_logs` automatically without a manual save button.
-
-#### Scenario: Log entry is saved
-- **WHEN** the trainer enters values for sets, reps, or weight on an exercise card
-- **THEN** a session_log row is created or updated for that exercise in this session
+## MODIFIED Requirements
 
 ### Requirement: Last session reference is shown during logging
 The system SHALL display each exercise's most recent completed performance inline on the exercise's logging card, directly above the input fields. The history SHALL be sourced per-exercise across all completed sessions for this client — not limited to the single most recent session.
@@ -47,3 +22,9 @@ The system SHALL display each exercise's most recent completed performance inlin
 #### Scenario: Exercise skipped in last session but logged in earlier session
 - **WHEN** the trainer views a logging card for an exercise that was NOT in the most recent completed session but WAS logged in an earlier completed session
 - **THEN** the inline history label SHALL still display the most recent values from the earlier session
+
+## REMOVED Requirements
+
+### Requirement: Collapsible last-session reference panel
+**Reason**: Replaced by per-exercise inline history labels that show relevant data without extra taps
+**Migration**: The collapsible panel UI and its `lastSession` prop are removed. Per-exercise history is now displayed inline on each exercise card via a new `exerciseHistory` prop.

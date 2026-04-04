@@ -43,3 +43,11 @@ export interface SessionLog {
   notes: string | null
   created_at: string
 }
+
+export interface LastExerciseLog {
+  sets: number | null
+  reps: number | null
+  weight: number | null
+  duration_seconds: number | null
+  exercise_type: 'weighted' | 'bodyweight' | 'duration'
+}

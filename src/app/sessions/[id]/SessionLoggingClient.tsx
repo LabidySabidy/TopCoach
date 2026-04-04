@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from 'react'
 import Link from 'next/link'
-import { Exercise, Session, SessionWithLogs } from '@/types'
+import { Exercise, Session, LastExerciseLog } from '@/types'
 import ExercisePicker from './ExercisePicker'
 import { saveSessionLogAction, completeSessionAction, cancelSessionAction } from './actions'
 
@@ -25,7 +25,7 @@ interface Props {
     duration_seconds: number | null
     exercises: Exercise
   }>
-  lastSession: SessionWithLogs | null
+  exerciseHistory: Record<string, LastExerciseLog>
 }
 
 function secondsToMinSec(seconds: number): { min: string; sec: string } {
@@ -33,20 +33,6 @@ function secondsToMinSec(seconds: number): { min: string; sec: string } {
     min: Math.floor(seconds / 60).toString(),
     sec: (seconds % 60).toString().padStart(2, '0'),
   }
-}
-
-function formatLogValue(log: SessionWithLogs['logs'][0]): string {
-  const type = log.exercises.exercise_type
-  if (type === 'duration') {
-    if (log.duration_seconds == null) return '—'
-    const { min, sec } = secondsToMinSec(log.duration_seconds)
-    return sec === '00' ? `${min}m` : `${min}m ${sec}s`
-  }
-  const parts: string[] = []
-  if (log.sets != null) parts.push(`${log.sets} sets`)
-  if (log.reps != null) parts.push(`${log.reps} reps`)
-  if (type === 'weighted' && log.weight != null) parts.push(`${log.weight} lbs`)
-  return parts.join(' · ') || '—'
 }
 
 function formatExistingLogValue(
@@ -187,8 +173,28 @@ function ResumePrompt({
   )
 }
 
+// ─── Helper to format exercise history ────────────────────────────────────────
+function formatExerciseHistory(history: LastExerciseLog | undefined): string {
+  if (!history) return 'First time logging this exercise'
+
+  const type = history.exercise_type
+  if (type === 'duration') {
+    if (history.duration_seconds == null) return 'First time logging this exercise'
+    const min = Math.floor(history.duration_seconds / 60)
+    const sec = history.duration_seconds % 60
+    return sec === 0 ? `Last: ${min}m` : `Last: ${min}m ${sec}s`
+  }
+
+  const parts: string[] = ['Last:']
+  if (history.sets != null) parts.push(`${history.sets} sets`)
+  if (history.reps != null) parts.push(`${history.reps} reps`)
+  if (type === 'weighted' && history.weight != null) parts.push(`${history.weight} lbs`)
+
+  return parts.length > 1 ? parts.join(' · ') : 'First time logging this exercise'
+}
+
 // ─── Main component ───────────────────────────────────────────────────────────
-export default function SessionLoggingClient({ session, allExercises, existingLogs, lastSession }: Props) {
+export default function SessionLoggingClient({ session, allExercises, existingLogs, exerciseHistory }: Props) {
   const initialExercises = existingLogs.map((l) => l.exercises)
   const initialLogs: Record<string, LogEntry> = {}
   for (const l of existingLogs) {
@@ -209,7 +215,6 @@ export default function SessionLoggingClient({ session, allExercises, existingLo
   const [exercises, setExercises] = useState<Exercise[]>(initialExercises)
   const [logs, setLogs] = useState<Record<string, LogEntry>>(initialLogs)
   const [showPicker, setShowPicker] = useState(false)
-  const [showLastSession, setShowLastSession] = useState(false)
   const [isPending, startTransition] = useTransition()
 
   // ── Completed: read-only report
@@ -300,46 +305,6 @@ export default function SessionLoggingClient({ session, allExercises, existingLo
       </div>
 
       <div className="flex-1 px-5 py-5 space-y-4 max-w-2xl mx-auto w-full">
-        {/* Last session reference */}
-        {lastSession && (
-          <button
-            onClick={() => setShowLastSession((v) => !v)}
-            className="w-full text-left rounded-xl border border-gray-200 bg-white px-5 py-3 transition hover:border-gray-300"
-          >
-            <div className="flex items-center justify-between">
-              <p className="text-sm font-medium text-gray-700">
-                Last session:{' '}
-                {new Date(lastSession.session.date + 'T00:00:00').toLocaleDateString('en-US', {
-                  month: 'short',
-                  day: 'numeric',
-                  year: 'numeric',
-                })}
-              </p>
-              <span className="text-xs text-gray-400">{showLastSession ? '▲ hide' : '▼ show'}</span>
-            </div>
-            {showLastSession && (
-              <div className="mt-3 space-y-2">
-                {lastSession.logs.length === 0 ? (
-                  <p className="text-xs text-gray-400">No exercises logged.</p>
-                ) : (
-                  lastSession.logs.map((log) => (
-                    <div key={log.id} className="flex items-center justify-between">
-                      <p className="text-xs text-gray-700">{log.exercises.name}</p>
-                      <p className="text-xs text-gray-500">{formatLogValue(log)}</p>
-                    </div>
-                  ))
-                )}
-              </div>
-            )}
-          </button>
-        )}
-
-        {!lastSession && (
-          <div className="rounded-xl border border-dashed border-gray-300 bg-white px-5 py-3 text-center">
-            <p className="text-xs text-gray-400">First session for this client</p>
-          </div>
-        )}
-
         {/* Exercise cards */}
         {exercises.length === 0 ? (
           <div className="rounded-xl border border-dashed border-gray-300 bg-white px-5 py-10 text-center">
@@ -354,6 +319,7 @@ export default function SessionLoggingClient({ session, allExercises, existingLo
         ) : (
           exercises.map((ex) => {
             const entry = logs[ex.id] ?? { sets: '', reps: '', weight: '', durationMin: '', durationSec: '' }
+            const history = exerciseHistory[ex.id]
             return (
               <div key={ex.id} className="rounded-xl border border-gray-200 bg-white px-5 py-4 space-y-3">
                 <div className="flex items-center justify-between">
@@ -362,6 +328,8 @@ export default function SessionLoggingClient({ session, allExercises, existingLo
                     <span className="text-xs text-gray-400">{ex.muscle_group}</span>
                   )}
                 </div>
+
+                <p className="text-xs text-gray-400">{formatExerciseHistory(history)}</p>
 
                 {ex.exercise_type === 'duration' ? (
                   <div className="grid grid-cols-2 gap-3">

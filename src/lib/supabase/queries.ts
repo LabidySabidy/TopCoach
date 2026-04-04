@@ -1,5 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
-import { Client, Session, SessionLog, Exercise } from '@/types'
+import { Client, Session, SessionLog, Exercise, LastExerciseLog } from '@/types'
 
 export async function getClients(): Promise<Client[]> {
   const supabase = await createClient()
@@ -161,4 +161,49 @@ export async function getAllExercises(): Promise<Exercise[]> {
 
   if (error) throw new Error(error.message)
   return data ?? []
+}
+
+export async function getLastLogPerExercise(
+  clientId: string,
+  exerciseIds: string[]
+): Promise<Record<string, LastExerciseLog>> {
+  if (exerciseIds.length === 0) return {}
+
+  const supabase = await createClient()
+  const { data, error } = await supabase
+    .from('session_logs')
+    .select('exercise_id, sets, reps, weight, duration_seconds, sessions!inner(date, status), exercises!inner(exercise_type)')
+    .eq('sessions.client_id', clientId)
+    .eq('sessions.status', 'completed')
+    .in('exercise_id', exerciseIds)
+    .order('exercise_id', { ascending: true })
+    .order('date', { ascending: false, referencedTable: 'sessions' })
+
+  if (error) throw new Error(error.message)
+
+  // Deduplicate: take the first (most recent) log per exercise
+  const result: Record<string, LastExerciseLog> = {}
+  const logs = (data ?? []) as Array<{
+    exercise_id: string
+    sets: number | null
+    reps: number | null
+    weight: number | null
+    duration_seconds: number | null
+    exercises: { exercise_type: string }[]
+  }>
+
+  for (const log of logs) {
+    if (!result[log.exercise_id]) {
+      const exerciseType = log.exercises?.[0]?.exercise_type
+      result[log.exercise_id] = {
+        sets: log.sets,
+        reps: log.reps,
+        weight: log.weight,
+        duration_seconds: log.duration_seconds,
+        exercise_type: (exerciseType || 'weighted') as LastExerciseLog['exercise_type'],
+      }
+    }
+  }
+
+  return result
 }

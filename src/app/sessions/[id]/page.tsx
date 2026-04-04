@@ -2,11 +2,10 @@ import { notFound } from 'next/navigation'
 import {
   getSessionById,
   getSessionLogs,
-  getLastCompletedSession,
+  getLastLogPerExercise,
   getAllExercises,
 } from '@/lib/supabase/queries'
 import SessionLoggingClient from './SessionLoggingClient'
-import { SessionWithLogs } from '@/types'
 
 export default async function SessionPage({
   params,
@@ -22,21 +21,16 @@ export default async function SessionPage({
 
   if (!sessionData) notFound()
 
-  const [existingLogs, lastSessionData] = await Promise.all([
-    getSessionLogs(id),
-    getLastCompletedSession(sessionData.client_id),
-  ])
-
-  const lastSession: SessionWithLogs | null = lastSessionData
-    ? { session: lastSessionData.session, logs: lastSessionData.logs }
-    : null
+  const existingLogs = await getSessionLogs(id)
+  const exerciseIds = existingLogs.map((log) => log.exercise_id)
+  const exerciseHistory = await getLastLogPerExercise(sessionData.client_id, exerciseIds)
 
   return (
     <SessionLoggingClient
       session={sessionData as Parameters<typeof SessionLoggingClient>[0]['session']}
       allExercises={allExercises}
       existingLogs={existingLogs as Parameters<typeof SessionLoggingClient>[0]['existingLogs']}
-      lastSession={lastSession}
+      exerciseHistory={exerciseHistory}
     />
   )
 }
